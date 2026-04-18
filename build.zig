@@ -91,6 +91,20 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("vulkan", vulkan);
 
+    const zglfw = b.dependency("zglfw", .{
+        .target = target,
+        .optimize = optimize,
+        .import_vulkan = true,
+    });
+
+    const zglfw_mod = zglfw.module("root");
+    zglfw_mod.addImport("vulkan", vulkan);
+    exe.root_module.addImport("zglfw", zglfw_mod);
+
+    if (target.result.os.tag != .emscripten) {
+        exe.root_module.linkLibrary(zglfw.artifact("glfw"));
+    }
+
     // This declares intent for the executable to be installed into the
     // install prefix when running `zig build` (i.e. when executing the default
     // step). By default the install prefix is `zig-out/` but can be overridden

@@ -40,6 +40,10 @@
             .url = "git+https://github.com/KhronosGroup/Vulkan-Headers#f6a6f7ab165cedbfa2a7d0c93fe27a2d01ce09c8",
             .hash = "N-V-__8AAC1ZbAIG2kVq3iPpAWaOlDTQ3MOyOyQQR0o_-9ez",
         },
+        .zglfw = .{
+            .url = "git+https://github.com/zig-gamedev/zglfw#0dd29d8073487c9fe1e45e6b729b3aac271d5a71",
+            .hash = "zglfw-0.10.0-dev-zgVDNIG4IQBWN_sfMD-xfC9bJS2hbBN2W7jNlDLovcdC",
+        },
     },
     .paths = .{
         "build.zig",
