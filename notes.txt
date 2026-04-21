@@ -1,0 +1,79 @@
+-- Vulkan steps for rendering --
+
+1. Instance and physical device selection:
+    Create an instance (vk.Instance) of the vulkan api and select the API extensions you want to use. From there you can query the system about the hardware and its details, using those you can choose the physical device (vk.PhysicalDevice) that will be used with the instance created.
+
+2. Logical Device and Queue families:
+    Create a representation of the physical device, this will be called the logical device that will be used to interface with the actual device (vk.Device). Using this instance of device, we will select all the features we need (out of those available) such as 64 bit floats, etc. We will also select the queue families that we will be using for the instance.
+
+    What are queue families?
+        Queue:
+            Think of the GPU as an automated servant, to tell it what to do, you write all the commands you want it to do for one task and put them in a collection together, called a command buffer. Then you give this set of commands (command buffer) to the gpu and it completes them asynchronously. The queue is just the place the command buffer goes to sit and wait its turn in being executed.
+
+            All tasks are started in a sequential order in a single queue, however different queues do not have this restriction inherently, so one task submitted later in another queue might run before another submitted sooner in the current queue.
+
+        Families:
+            Different tasks are meant for different spots of the gpu, like how there will be 2 different queues for ice cream and a waterslide, the gpu also splits queues by their capabilities.
+
+            EXAMPLE 1: minImageTransferGranularity = (1,1,1)
+                queueCount                  = 16
+                queueFlags                  = QUEUE_GRAPHICS_BIT | QUEUE_COMPUTE_BIT | QUEUE_TRANSFER_BIT | QUEUE_SPARSE_BINDING_BIT
+                timestampValidBits          = 64
+                present support             = true
+                VkQueueFamilyOwnershipTransferPropertiesKHR:
+                --------------------------------------------
+                        optimalImageTransferToQueueFamilies = 63
+
+                VkQueueFamilyQueryResultStatusPropertiesKHR:
+                --------------------------------------------
+                        queryResultStatusSupport = false
+
+                VkQueueFamilyVideoPropertiesKHR:
+                --------------------------------
+                        videoCodecOperations:
+                                None
+
+            This queue can support command buffers with draw commands (GRAPHICS), compute command, transfer data, etc. For this hardware, we can create 16 different queues of this type that can run independently. The GPU also has different queues for specialized (but widely used) tasks. Such as:
+
+            EXAMPLE 2:  minImageTransferGranularity = (1,1,1)
+                queueCount                  = 1
+                queueFlags                  = QUEUE_TRANSFER_BIT | QUEUE_SPARSE_BINDING_BIT | QUEUE_VIDEO_DECODE_BIT_KHR
+                timestampValidBits          = 32
+                present support             = false
+                VkQueueFamilyOwnershipTransferPropertiesKHR:
+                --------------------------------------------
+                        optimalImageTransferToQueueFamilies = 63
+
+                VkQueueFamilyQueryResultStatusPropertiesKHR:
+                --------------------------------------------
+                        queryResultStatusSupport = true
+
+                VkQueueFamilyVideoPropertiesKHR:
+                --------------------------------
+                        videoCodecOperations: count = 4
+                                VIDEO_CODEC_OPERATION_DECODE_H264_BIT_KHR
+                                VIDEO_CODEC_OPERATION_DECODE_H265_BIT_KHR
+                                VIDEO_CODEC_OPERATION_DECODE_AV1_BIT_KHR
+                                VIDEO_CODEC_OPERATION_DECODE_VP9_BIT_KHR
+
+            We can use only 1 queue of this family, and it will only accept transfer, sparse binding, and video decode commands.
+
+            For example, if you want to make a video player; you need an overlay as well as the video. So you can use the queue used in example 1 for the overlay and UI while the example 2 queue actually decodes the video file to play. This way you seperate the tasks into their specialized sections of the GPU and have a higly performant application.
+
+3. Surface and Swapchain
+    Surface:
+        To actually show stuff on the screen we will need to create a window, each platform (windows, macos, linux) has its own way of creating a window. Since vulkan is a cross-platform API we will create a platfrom agnostic drawing surface (vk.Surface) which is instantiated by giving a reference to the native platform handle (This can be done using a library like GLFW/SDL).
+
+    Swapchain:
+        The swapchain (vk.Swapchain) is basically a curator of the images we are drawing, it decides what images/frames should be drawn to right now and what image should be presented. It has the responsibility of seperating the rendering from the presenting. When we want to draw an image, we ask the swapchain and it gives us the reference to the image we are supposed to draw on. Once we are done drawing, we give the image back to the swapchain and it buffers (stores) it to be presented at the right time. When and how images are presented depend on the conditions such as frame rate, and present mode (double buffering (vsync), triple buffering).
+
+4. ImageView and Framebuffers
+    ImageView:
+        When we query the swapchain for the next image to draw, it returns an Image, this Image is just the raw memory in the gpu, it has no identity or format. For that we create the ImageView (vk.ImageView) to assign properties (such as which color channels are active, is it 2d or 3d, how to interpret it) to this raw memory.
+
+    Framebuffer:
+        A framebuffer (vk.Framebuffer) is like an address book that links the render passes to the imageview. E.g. it tells the render pass where to store the information for the red pixels given the format of the imageview.
+        Point to note, framebuffers are now obsolete as the standard now is to use dynamic rendering.
+
+5. Dynamic Rendering
+    You no longer need the vk.RenderPass and vk.Framebuffer objects to connect the render passes to the render targets, we can do that on the fly now. So instead of creating a new address book for each imageview, we just begin rendering (vk.beginRendering) and give the needed info in structs like vk.RenderingInfo.
